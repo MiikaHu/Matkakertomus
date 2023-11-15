@@ -1,0 +1,67 @@
+﻿@page "/login"
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager NavigationManager
+@inject StateContainer State
+@implements IDisposable
+
+<PageTitle>Kirjaudu sisään</PageTitle>
+
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall">
+	<MudText Typo="Typo.h2" Class="mb-4" Align="Align.Center">Kirjaudu sisään</MudText>
+	<EditForm Model="user" OnValidSubmit="@HandleValidSubmit">
+		<DataAnnotationsValidator/>
+		<MudCard>
+			<MudCardContent Style="background-color:darkgray">
+				<MudTextField Label="Email" Class="mt-3" @bind-Value="user.Email" For="@(() => user.Email)"/>
+				<MudTextField Label="Salasana"Class="mt-3"
+				              @bind-Value="user.Password" For="@(() => user.Password)" InputType="InputType.Password"/>
+			</MudCardContent>
+			<MudCardActions Style="background-color:darkgray">
+				<MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Kirjaudu</MudButton>
+			</MudCardActions>
+		</MudCard>
+	</EditForm>
+</MudContainer>
+
+
+@code {
+	UserLoginDto user = new UserLoginDto();
+
+	public async Task HandleValidSubmit()
+	{
+		var response = await Http.PostAsJsonAsync("api/auth/login", user);
+		if (!response.IsSuccessStatusCode)
+		{
+			using HttpContent content = response.Content;
+			string responseFromServer = await content.ReadAsStringAsync();
+			Snackbar.Add(responseFromServer, Severity.Error);
+			return;
+		}
+		var token = await response.Content.ReadAsStringAsync();
+		await LocalStorage.SetItemAsync("token", token);
+		await AuthStateProvider.GetAuthenticationStateAsync();
+		var profile = await Http.GetFromJsonAsync<ProfileDto>("/api/Travellers/profile");
+		ChangePropertyValue(profile);
+		NavigationManager.NavigateTo("/");
+	}
+
+	protected override void OnInitialized()
+	{
+		State.OnChange += StateHasChanged;
+	}
+
+	private void ChangePropertyValue(ProfileDto profile)
+	{
+		State.User = profile;
+	}
+
+	public void Dispose()
+	{
+        State.OnChange -= StateHasChanged;
+	}
+
+}

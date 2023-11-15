@@ -1,0 +1,64 @@
+﻿@page "/groupstories/{id}/images"
+@using Matkakertomus.Shared
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Tarinan kuvat</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
+    <MudGrid Spacing="5">
+        @if (imageDtos is not null)
+        {
+            @foreach (var image in imageDtos)
+            {
+                <MudItem Style="min-width: 400px">
+                    <MudCard Style="max-width: 400px">
+                        <MudButton OnClick="(e) => OpenDialog(image)">
+                            <MudAvatar Square="true" Style="height:400px; width: 380px" Image="@BytesToBase64Image(image.Image)" />
+                        </MudButton>
+                    </MudCard>
+                </MudItem>
+            }
+        }
+    </MudGrid>
+</MudContainer>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+    string ImageUri;
+    List<ImageDto>? imageDtos = new();
+    ImageDto? selectedImage = new ImageDto();
+
+    protected override async Task OnInitializedAsync()
+    {
+        imageDtos = await HttpClient.GetFromJsonAsync<List<ImageDto>>($"api/Pictures/{Id}/?storyId={Convert.ToUInt32(Id)}");
+    }
+
+    private async Task LoadImage(IBrowserFile files)
+    {
+        using Stream imageStream = files.OpenReadStream(1024 * 1024 * 10);
+        using MemoryStream ms = new();
+        await imageStream.CopyToAsync(ms);
+        var asBytes = ms.ToArray();
+        ImageUri = $"data:image/png;base64,{Convert.ToBase64String(asBytes)}";
+        selectedImage.Image = asBytes;
+        StateHasChanged();
+    }
+
+    private string BytesToBase64Image(byte[] bytes)
+    {
+        if (bytes is null) return "";
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+    }
+
+    private void OpenDialog(ImageDto imageDto)
+    {
+        var parameters = new DialogParameters { ["ImageBytes"] = imageDto.Image };
+        var options = new DialogOptions { CloseOnEscapeKey = true, NoHeader = true, MaxWidth = MaxWidth.ExtraLarge };
+        DialogService.Show<ImageDialog>("", parameters, options);
+    }
+}

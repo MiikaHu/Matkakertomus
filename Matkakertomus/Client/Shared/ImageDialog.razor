@@ -1,0 +1,20 @@
+﻿<MudDialog>
+	<DialogContent>
+
+		<MudImage ObjectFit="ObjectFit.ScaleDown"
+				  Src="@BytesToBase64Image(ImageBytes)"></MudImage>
+	</DialogContent>
+</MudDialog>
+
+@code {
+	[CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+	[Parameter] public byte[] ImageBytes { get; set; }
+
+
+	private string BytesToBase64Image(byte[] bytes) =>
+		bytes is null ? "" : $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+
+	void Submit() => MudDialog.Close(DialogResult.Ok(true));
+	void Cancel() => MudDialog.Cancel();
+}

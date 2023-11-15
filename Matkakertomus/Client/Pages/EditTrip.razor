@@ -1,0 +1,98 @@
+﻿@page "/mytrips/{id}"
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@using Matkakertomus.Shared
+
+
+
+@if (tripDto is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-4">
+	<MudText Typo="Typo.h2" Class="mb-4" Align="Align.Center">Muokkaa matkaa</MudText>
+
+	    <EditForm Model="tripDto" OnValidSubmit="@HandleValidSubmit">
+            <DataAnnotationsValidator />
+            <MudCard>
+
+                <MudCardContent Style="background-color:darkgray">
+                    <MudTextField Label="Matkan otsikko" @bind-Value="tripDto.Title" For="@(() => tripDto.Title)" />
+                    <MudDatePicker Label="Matkan aloitus pvm" @bind-Date="tripDto.StartDate" For="@(() => tripDto.StartDate)" />
+                    <MudDatePicker Label="Matkan lopetus pvm" @bind-Date="tripDto.EndDate" For="@(() => tripDto.EndDate)" />
+                    <MudCheckBox @bind-Checked="@Basic_CheckBox3" Color="Color.Primary">Yksityinen</MudCheckBox>
+               
+                
+                
+	            <MudStack Style="background-color:darkgray" Row="true" Class="mt-4" >
+			    <MudAvatar Size="Size.Large" Image="@ImageUri"></MudAvatar>
+			    <MudFileUpload T="IBrowserFile" FilesChanged="LoadImage">
+				    <ButtonTemplate Context="context_">
+					    <MudButton HtmlTag="label"
+					               Variant="Variant.Filled"
+					               Color="Color.Primary"
+					               StartIcon="@Icons.Material.Filled.CloudUpload"
+					               for="@context_">
+						    Lisää kuva
+					    </MudButton>
+				    </ButtonTemplate>
+			    </MudFileUpload>
+                </MudStack>
+                     <MudCardActions Style="background-color:darkgray">
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Tallenna matka</MudButton>
+                </MudCardActions>
+                
+	            </MudCardContent>
+            </MudCard>
+        </EditForm>
+    </MudContainer>
+}
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+    public bool Basic_CheckBox3 { get; set; } = false;
+    string ImageUri;
+    TripDto? tripDto;
+
+    protected override async Task OnInitializedAsync()
+    {
+        tripDto = await HttpClient.GetFromJsonAsync<TripDto>("api/Trips/" + Id);
+        Basic_CheckBox3 = Convert.ToBoolean(tripDto.Private);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        tripDto.Private = Convert.ToSByte(Basic_CheckBox3);
+        // Lisää virheenkäsittely
+        var response = await HttpClient.PutAsJsonAsync("api/Trips/" + Id, tripDto);
+        if (!response.IsSuccessStatusCode)
+        {
+            using HttpContent content = response.Content;
+            string responseFromServer = await content.ReadAsStringAsync();
+            Snackbar.Add(responseFromServer, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Matkan muokkaus onnistui", Severity.Success); // Ylhäälle ilmoitus onnistuneesta operaatiosta
+        NavigationManager.NavigateTo("mytrips");
+    }
+
+	// Image stuff
+	private async Task LoadImage(IBrowserFile file)
+	{
+		using Stream imageStream = file.OpenReadStream(1024 * 1024 * 10);
+
+		using MemoryStream ms = new();
+		await imageStream.CopyToAsync(ms);
+		var asBytes = ms.ToArray();
+
+		ImageUri = $"data:image/png;base64,{Convert.ToBase64String(asBytes)}";
+        //tripDto.Image = asBytes;
+		StateHasChanged();
+	}
+
+	private string BytesToBase64Image(byte[] bytes)
+	{
+		if (bytes is null) return "";
+		return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+	}
+}

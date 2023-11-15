@@ -1,0 +1,42 @@
+﻿@inject ILocalStorageService LocalStorage
+@page "/"
+@using System.Security.Claims
+
+<MudCarousel Class="mud-width-full" Style="height:500px;" ShowBullets="@bullets" AutoCycle="@autocycle" TData="object">
+    <MudCarouselItem Transition="@Transition.Slide">
+        <div class="d-flex" style="height:100%">
+            <MudImage Class="mx-auto my-auto" Src="images/travel1.jpg" Size="@Size.Large" />
+        </div>
+    </MudCarouselItem>
+    <MudCarouselItem Transition="@Transition.Slide">
+        <div class="d-flex" style="height:100%">
+             <MudImage Class="mx-auto my-auto" Src="images/travel2.jpg" Size="@Size.Large" />
+        </div>
+    </MudCarouselItem>
+    <MudCarouselItem Transition="@Transition.Slide">
+        <div class="d-flex" style="height:100%">
+            <MudImage Class="mx-auto my-auto" Src="images/travel3.jpg" Size="@Size.Large" />
+        </div>
+    </MudCarouselItem>
+</MudCarousel>
+
+<MudText Typo="Typo.h3">Tervetuloa Kuopion Kulkijoiden Matkakertomus -sivulle!</MudText>
+
+<AuthorizeView>
+    <Authorized>
+        <h2>
+            Kirjautunut käyttäjänä: @context.User.FindFirst(ClaimTypes.Name).Value
+	        </h2>
+    </Authorized>
+    <NotAuthorized>
+        <h2>Kirjaudu sisään nähdäksesi enemmän.</h2>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code{ 
+   
+    private bool bullets = true;
+   
+    private bool autocycle = true;
+   
+}

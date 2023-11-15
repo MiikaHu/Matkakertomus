@@ -1,0 +1,107 @@
+﻿@page "/destinations2"
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@using Matkakertomus.Shared
+
+
+
+<PageTitle>Destinations</PageTitle>
+
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
+	<MudGrid Spacing="5">
+        
+		@if (destinations is not null)
+		{
+			@foreach (var destination in destinations)
+			{
+
+				<MudItem Style="min-width: 400px">
+					<MudCard>
+						<MudCardMedia Image="@BytesToBase64Image(destination.Image)" Height="200" />
+						<MudCardContent>
+							<MudText Typo="Typo.h5">@destination.DestinationName</MudText>
+							<MudText Typo="Typo.body2">@destination.Country</MudText>
+							<MudText Typo="Typo.caption">@destination.Description</MudText>
+						</MudCardContent>
+						<MudCardActions>
+							<MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto" @onclick="@(() => EditObject(destination.DestinationId))">Muokkaa</MudButton>
+							<MudSpacer/>
+							<MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Error"  @onclick="@(() => DeleteObject(destination.DestinationId))">Poista</MudButton>
+						</MudCardActions>
+					</MudCard>
+				</MudItem>
+				
+			}
+		}
+	</MudGrid>
+</MudContainer>
+
+
+
+
+
+@code {
+
+    private List<DestinationDto>? destinations;
+    string ImageUri;
+
+    protected override async Task OnInitializedAsync()
+    {
+        destinations = await HttpClient.GetFromJsonAsync<List<DestinationDto>>("api/Destinations");
+    }
+
+    DestinationDto destination = new DestinationDto();
+    private async Task HandleValidSubmit()
+    {
+
+        // Lisää virheenkäsittely
+        var response = await HttpClient.PostAsJsonAsync("api/Destinations", destination);
+        if (!response.IsSuccessStatusCode)
+        {
+            using HttpContent content = response.Content;
+            string responseFromServer = await content.ReadAsStringAsync();
+            Snackbar.Add(responseFromServer, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Matkakohteen lisäys onnistui", Severity.Success); // Ylhäälle ilmoitus onnistuneesta operaatiosta
+        destinations = await HttpClient.GetFromJsonAsync<List<DestinationDto>>("api/Destinations");
+        //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+
+    }
+    private async Task DeleteObject(uint id)
+    {
+        await HttpClient.DeleteAsync("api/Destinations/" + id);
+        destinations = await HttpClient.GetFromJsonAsync<List<DestinationDto>>("api/Destinations");
+        //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
+    private async Task EditObject(uint id)
+    {
+        NavigationManager.NavigateTo("destinations/" + id);
+    }
+
+
+
+    // Image stuff
+    private async Task LoadImage(IBrowserFile file)
+    {
+        using Stream imageStream = file.OpenReadStream(1024 * 1024 * 10);
+
+        using MemoryStream ms = new();
+        await imageStream.CopyToAsync(ms);
+        var asBytes = ms.ToArray();
+
+        ImageUri = $"data:image/png;base64,{Convert.ToBase64String(asBytes)}";
+        destination.Image = asBytes;
+        StateHasChanged();
+    }
+
+    private string BytesToBase64Image(byte[] bytes)
+    {
+        if (bytes is null) return "";
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+    }
+
+}

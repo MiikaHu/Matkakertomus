@@ -1,0 +1,19 @@
+﻿@inject ILocalStorageService LocalStorage
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+
+	<MudNavMenu>
+		<div class="d-flex justify-center align-center mt-2">
+    <MudImage Src="images/kuopionkulkijatlogo.png" Class="mx-auto" Height="150" Width="150" />
+</div>
+		<MudNavLink Icon="@Icons.Material.Filled.Home" Title="Koti" Href="/" Match="NavLinkMatch.All">Koti</MudNavLink>
+		<MudNavLink Icon="@Icons.Material.Filled.Map" Title="Matkakohteet" Href="/destinations" Match="NavLinkMatch.All">Matkakohteet</MudNavLink>
+		<AuthorizeView>
+			<MudNavLink Icon="@Icons.Material.Filled.Group" Title="Porukan matkat" Href="/grouptrips" Match="NavLinkMatch.All">Porukan matkat</MudNavLink>
+			<MudNavLink Icon="@Icons.Material.Filled.Person" Title="Omat matkat" Href="/mytrips" Match="NavLinkMatch.All">Omat matkat</MudNavLink>
+			<MudNavLink Icon="@Icons.Material.Filled.FileOpen" Title="Omat tiedot"  Href="/profile" Match="NavLinkMatch.All">Omat tiedot</MudNavLink>
+			<MudNavLink Icon="@Icons.Material.Filled.People" Title="Jäsenet" Href="/members" Match="NavLinkMatch.All">Jäsenet</MudNavLink>
+		</AuthorizeView>
+	</MudNavMenu>
+

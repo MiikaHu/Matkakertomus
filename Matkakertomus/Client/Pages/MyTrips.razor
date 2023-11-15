@@ -1,0 +1,145 @@
+﻿@page "/mytrips"
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using Matkakertomus.Shared
+@inject AuthenticationStateProvider AuthStateProvider
+
+
+<MudContainer Style="overflow-x: auto" MaxWidth="MaxWidth.Large" Class="pa-4">
+    <MudText Typo="Typo.h2" Class="mb-4" Align="Align.Center">Minun Matkani</MudText>
+
+    <EditForm Model="trip" OnValidSubmit="@HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <MudCard>
+            <MudCardContent Style="background-color: darkgray">
+                <MudTextField Label="Matkan otsikko" @bind-Value="trip.Title" For="@(() => trip.Title)" />
+                <MudDatePicker Rounded="true" Elevation="12" Color="Color.Primary" Label="Matkan aloitus pvm" @bind-Date="trip.StartDate" For="@(() => trip.StartDate)" />
+                <MudDatePicker Rounded="true" Elevation="12" Color="Color.Primary" Label="Matkan lopetus pvm" @bind-Date="trip.EndDate" For="@(() => trip.EndDate)" />
+                <MudCheckBox @bind-Checked="@Basic_CheckBox3" Color="Color.Dark">Yksityinen</MudCheckBox>
+
+            </MudCardContent>
+            <MudCardActions Style="background-color: darkgray">
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Lisää matka</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </EditForm>
+    <MudDivider DividerType="DividerType.Middle" Class="my-6" />
+
+
+    <MudSimpleTable Style="background-color: darkgray; overflow-x: auto">
+        <thead>
+            <tr>
+                <th>Matkan otsikko</th>
+                <th>Lähtö pvm</th>
+                <th>Paluu pvm</th>
+                <th>Kuvat ja tarinat</th>
+                <th>Muokkaa</th>
+                <th>Poista</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (trips is not null)
+            {
+                @foreach (var trip in trips)
+                {
+                    <tr>
+                        <td>@trip.Title</td>
+                        <td>@Convert.ToDateTime(trip.StartDate).ToString("dd/MM/yyyy")</td>
+                        <td>@Convert.ToDateTime(trip.EndDate).ToString("dd/MM/yyyy")</td>
+                        <td><MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto" @onclick="@(() => AddStories(trip.TripId))">Kuvat ja tarinat</MudButton></td>
+                        <td><MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto" @onclick="@(() => EditObject(trip.TripId))">Muokkaa</MudButton></td>
+                        <td><MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Error" Class="ml-auto" @onclick="@((e) => DeleteObject(trip.TripId))">Poista</MudButton></td>
+                    </tr>
+                }
+            }
+
+        </tbody>
+    </MudSimpleTable>
+
+
+
+</MudContainer>
+
+
+
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+    private bool IsDialogOpen { get; set; }
+    public bool Basic_CheckBox3 { get; set; } = false;
+    private List<TripDto>? trips;
+    string ImageUri;
+    TripDto trip = new TripDto();
+    DestinationDto destination = new DestinationDto();
+
+    protected override async Task OnInitializedAsync()
+    {
+        trips = await HttpClient.GetFromJsonAsync<List<TripDto>>("api/Trips/search");
+    }
+
+
+
+    private async Task HandleValidSubmit()
+    {
+        trip.Private = Convert.ToSByte(Basic_CheckBox3);
+        // Lisää virheenkäsittely
+        var response = await HttpClient.PostAsJsonAsync("api/Trips", trip);
+        if (!response.IsSuccessStatusCode)
+        {
+            using HttpContent content = response.Content;
+            string responseFromServer = await content.ReadAsStringAsync();
+            Snackbar.Add(responseFromServer, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Matkan lisäys onnistui", Severity.Success); // Ylhäälle ilmoitus onnistuneesta operaatiosta
+        trips = await HttpClient.GetFromJsonAsync<List<TripDto>>("api/Trips/search");
+        //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+
+    }
+    private async Task DeleteObject(uint id)
+    {
+        var dialog = await DialogService.ShowAsync<TripsDialog>("Halutako varmasti poistaa matkan?");
+        var result = await dialog.Result;
+        if (!result.Cancelled)
+        {
+            await HttpClient.DeleteAsync("api/Trips/" + id);
+            Snackbar.Add("Matkan poistaminen onnistui", Severity.Success);
+        }
+
+        trips = await HttpClient.GetFromJsonAsync<List<TripDto>>("api/Trips/search");
+        //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
+    private async Task EditObject(uint id)
+    {
+        NavigationManager.NavigateTo("mytrips/" + id);
+    }
+    private async Task AddStories(uint id)
+    {
+        NavigationManager.NavigateTo("mytrips/" + id + "/mystories");
+    }
+
+
+    // Image stuff
+    private async Task LoadImage(IBrowserFile file)
+    {
+        using Stream imageStream = file.OpenReadStream(1024 * 1024 * 10);
+
+        using MemoryStream ms = new();
+        await imageStream.CopyToAsync(ms);
+        var asBytes = ms.ToArray();
+
+        ImageUri = $"data:image/png;base64,{Convert.ToBase64String(asBytes)}";
+        destination.Image = asBytes;
+        StateHasChanged();
+    }
+
+    private string BytesToBase64Image(byte[] bytes)
+    {
+        if (bytes is null) return "";
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+    }
+}

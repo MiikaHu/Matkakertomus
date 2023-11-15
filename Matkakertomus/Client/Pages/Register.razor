@@ -1,0 +1,53 @@
+﻿@page "/register"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@using Matkakertomus.Shared
+
+<PageTitle>Rekisteröidy</PageTitle>
+
+
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall">
+	<MudText Typo="Typo.h2" Class="mb-4" Align="Align.Center">Rekisteröidy</MudText>
+
+	<EditForm Model="user" OnValidSubmit="@HandleValidSubmit">
+		<DataAnnotationsValidator/>
+		<MudCard>
+			<MudCardContent Style="background-color: darkgray">
+				<MudTextField Label="Etunimi" @bind-Value="user.FirstName" For="@(() => user.FirstName)"/>
+				<MudTextField Label="Sukunimi" @bind-Value="user.LastName" For="@(() => user.LastName)"/>
+				<MudTextField Label="Käyttäjätunnus" @bind-Value="user.Username" For="@(() => user.Username)"/>
+				<MudTextField Label="Email" Class="mt-3" @bind-Value="user.Email" For="@(() => user.Email)"/>
+				<MudTextField Label="Salasana" Class="mt-3"
+				              @bind-Value="user.Password" For="@(() => user.Password)" InputType="InputType.Password"/>
+				<MudTextField Label="Varmista salasana" Class="mt-3"
+				              @bind-Value="user.ConfirmPassword" For="@(() => user.ConfirmPassword)" InputType="InputType.Password"/>
+			</MudCardContent>
+			<MudCardActions Style="background-color: darkgray">
+				<MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Rekisteröidy</MudButton>
+			</MudCardActions>
+		</MudCard>
+	</EditForm>
+</MudContainer>
+
+@code {
+
+	UserRegisterDto user = new UserRegisterDto();
+
+	private async Task HandleValidSubmit()
+	{
+		var response = await Http.PostAsJsonAsync("api/auth/register", user);
+		if (!response.IsSuccessStatusCode)
+		{
+			using HttpContent content = response.Content;
+			string responseFromServer = await content.ReadAsStringAsync();
+			Snackbar.Add(responseFromServer, Severity.Error);
+			return;
+		}
+		Snackbar.Add("Rekisteröinti onnistui", Severity.Success);
+		NavigationManager.NavigateTo("login");
+
+
+	}
+}

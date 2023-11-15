@@ -1,0 +1,105 @@
+﻿@page "/groupstories/{id}"
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@using Matkakertomus.Shared
+
+<PageTitle>Porukan matkan tarinat</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
+    <MudGrid Spacing="5">
+
+        @if (storyDtos is not null && destinations is not null && selectedDestination is not null)
+        {
+            @foreach (var story in storyDtos)
+            {
+
+                <MudItem Style="min-width: 400px">
+                    <MudCard Style="background-color:darkgray; max-width: 400px">
+
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.body2">@Convert.ToDateTime(story.Date).ToString("dd/MM/yyyy")</MudText>
+                                <MudText Typo="Typo.body2">@selectedDestination.DestinationName</MudText>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                                   Class="ml-auto" @onclick="@(() => CheckImages(story.StoryId))">Kuvat</MudButton>
+                            </CardHeaderActions>
+                        </MudCardHeader>
+                        <MudCardMedia Image="@BytesToBase64Image(selectedDestination.Image)" Height="300" />
+                        <MudCardContent Style="background-color:darkgray">
+                            @*<MudText Typo="Typo.h5">@story.Title</MudText>*@
+
+                            <MudText Typo="Typo.caption" MultiLine="true" Style="word-wrap: break-word">@story.Text</MudText>
+
+                        </MudCardContent>
+
+                    </MudCard>
+                </MudItem>
+
+            }
+        }
+    </MudGrid>
+</MudContainer>
+
+@code {
+    [Parameter]
+    public string Id { get; set; }
+    string ImageUri;
+    private uint selectedDestinationId;
+    List<StoryDto>? storyDtos = new();
+    DestinationDto? selectedDestination = new DestinationDto();
+    List<DestinationDto>? destinations = new();
+    StoryDto selectedStory = new StoryDto();
+    private uint selectedStoryTripId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        storyDtos = await HttpClient.GetFromJsonAsync<List<StoryDto>>($"api/Stories/{Id}/?tripId={Convert.ToUInt32(Id)}");
+        destinations = await HttpClient.GetFromJsonAsync<List<DestinationDto>>("api/Destinations");
+        if (storyDtos is not null)
+        {
+            selectedStory = storyDtos.FirstOrDefault(t => t.TripId == Convert.ToUInt32(Id));
+        }
+
+        if (destinations is not null && selectedStory is not null)
+        {
+            try
+            {
+                selectedDestination = destinations.FirstOrDefault(t => t.DestinationId == selectedStory.DestinationId);
+            }
+            catch (Exception e)
+            {
+
+                throw e;
+            }
+
+        }
+
+    }
+    private async Task LoadImage(IBrowserFile file)
+    {
+        using Stream imageStream = file.OpenReadStream(1024 * 1024 * 10);
+
+        using MemoryStream ms = new();
+        await imageStream.CopyToAsync(ms);
+        var asBytes = ms.ToArray();
+
+        ImageUri = $"data:image/png;base64,{Convert.ToBase64String(asBytes)}";
+        selectedDestination.Image = asBytes;
+        StateHasChanged();
+    }
+
+    private string BytesToBase64Image(byte[] bytes)
+    {
+        if (bytes is null) return "";
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+    }
+    private async Task CheckImages(uint id)
+    {
+        NavigationManager.NavigateTo("/groupstories/" + id + "/images");
+    }
+}

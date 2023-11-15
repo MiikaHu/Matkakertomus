@@ -1,0 +1,162 @@
+﻿@page "/mystories/{id}/images"
+@using Matkakertomus.Shared
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Tarinan kuvat</PageTitle>
+
+<MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles">
+    <ButtonTemplate>
+        <MudButton HtmlTag="label"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                   for="@context">
+            Lataa kuvia
+        </MudButton>
+    </ButtonTemplate>
+</MudFileUpload>
+@*<MudContainer MaxWidth="MaxWidth.Medium" Class="pa-4 mr-16">
+    <EditForm Model="selectedImage" OnValidSubmit="@HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <MudCard>
+            <MudCardContent Style="background-color:darkgray">
+                <MudAvatar Size="Size.Large" Image="@ImageUri"></MudAvatar>
+
+                <MudFileUpload T="IBrowserFile[]" OnChange="@OnFileSelection" Multiple="true" T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadFiles">
+
+                    <ButtonTemplate Context="context_">
+                        <MudButton HtmlTag="label"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.CloudUpload"
+                                   for="@context_">
+                            Lisää kuvia
+                        </MudButton>
+                    </ButtonTemplate>
+                </MudFileUpload>
+
+            </MudCardContent>
+            <MudCardActions Style="background-color:darkgray">
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Lisää kuva</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </EditForm>
+</MudContainer>*@
+
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
+    <MudGrid Spacing="5">
+        @if (imageDtos is not null)
+        {
+            @foreach (var image in imageDtos)
+            {
+                <MudItem Style="min-width: 400px">
+                    <MudCard Style="max-width: 400px">
+                        <MudButton OnClick="(e) => OpenDialog(image)">
+                            <MudAvatar Square="true" Style="height:400px; width: 380px" Image="@BytesToBase64Image(image.Image)" />
+                        </MudButton>
+                        <MudCardActions Style="background-color:darkgray">
+                            @*<MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Error" @onclick="@(() => DeleteObject(story.StoryId))">Poista</MudButton>*@
+                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@((e) => DeleteObject(image.ImageId))">Poista</MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        }
+    </MudGrid>
+</MudContainer>
+
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+    string ImageUri;
+    List<StoryDto>? stories = new();
+    StoryDto selectedStory = new StoryDto();
+    List<ImageDto>? imageDtos = new();
+    ImageDto? selectedImage = new ImageDto();
+
+    protected override async Task OnInitializedAsync()
+    {
+        imageDtos = await HttpClient.GetFromJsonAsync<List<ImageDto>>($"api/Pictures/{Id}/?storyId={Convert.ToUInt32(Id)}");
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        selectedImage.StoryId = Convert.ToUInt32(Id);
+
+        var response = await HttpClient.PostAsJsonAsync("api/Pictures", selectedImage);
+        Snackbar.Add("Kuvan lisäys onnistui", Severity.Success);
+        if (!response.IsSuccessStatusCode)
+        {
+            using HttpContent content = response.Content;
+            string responseFromServer = await content.ReadAsStringAsync();
+            Snackbar.Add(responseFromServer, Severity.Error);
+            return;
+        }
+        // Ylhäälle ilmoitus onnistuneesta operaatiosta
+        imageDtos = await HttpClient.GetFromJsonAsync<List<ImageDto>>($"api/Pictures/{Id}/?storyId={Convert.ToUInt32(Id)}");
+        //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+
+    }
+
+    IList<IBrowserFile> files = new List<IBrowserFile>();
+    private async Task UploadFiles(IReadOnlyList<IBrowserFile> files)
+    {
+        foreach (var file in files)
+        {
+            selectedImage = new ImageDto();
+            this.files.Add(file);
+            var stream = file.OpenReadStream(1024 * 1024 * 10);
+            var buffer = new byte[file.Size];
+            await stream.ReadAsync(buffer);
+
+            selectedImage.StoryId = Convert.ToUInt32(Id);
+            selectedImage.Image = buffer;
+            var response = await HttpClient.PostAsJsonAsync("api/Pictures", selectedImage);
+        }
+        imageDtos = await HttpClient.GetFromJsonAsync<List<ImageDto>>($"api/Pictures/{Id}/?storyId={Convert.ToUInt32(Id)}");
+        //TODO upload the files to the server
+    }
+
+
+
+    private async Task LoadImage(IBrowserFile files)
+    {
+        using Stream imageStream = files.OpenReadStream(1024 * 1024 * 10);
+        using MemoryStream ms = new();
+        await imageStream.CopyToAsync(ms);
+        var asBytes = ms.ToArray();
+        ImageUri = $"data:image/png;base64,{Convert.ToBase64String(asBytes)}";
+        selectedImage.Image = asBytes;
+        StateHasChanged();
+    }
+
+    private string BytesToBase64Image(byte[] bytes)
+    {
+        if (bytes is null) return "";
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+    }
+    private async Task DeleteObject(uint imageId)
+    {
+        /*var dialog = await DialogService.ShowAsync<StoriesDialog>("Halutako varmasti poistaa tarinan?");
+    var result = await dialog.Result;
+    if (!result.Cancelled)
+    {
+
+    }*/
+        await HttpClient.DeleteAsync("api/Pictures/" + imageId);
+        Snackbar.Add("Kuvan poistaminen onnistui", Severity.Success);
+        imageDtos = await HttpClient.GetFromJsonAsync<List<ImageDto>>($"api/Pictures/{Id}/?storyId={Convert.ToUInt32(Id)}");
+    }
+    private void OpenDialog(ImageDto imageDto)
+    {
+        var parameters = new DialogParameters { ["ImageBytes"] = imageDto.Image };
+        var options = new DialogOptions { CloseOnEscapeKey = true, NoHeader = true, MaxWidth = MaxWidth.ExtraLarge };
+        DialogService.Show<ImageDialog>("", parameters, options);
+    }
+}

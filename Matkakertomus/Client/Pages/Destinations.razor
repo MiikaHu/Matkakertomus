@@ -1,0 +1,220 @@
+﻿@page "/destinations"
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@using Matkakertomus.Shared
+@inject IDialogService DialogService
+@inject AuthenticationStateProvider AuthStateProvider
+
+
+
+<PageTitle>Matkakohteet</PageTitle>
+
+
+<MudContainer Style="overflow-x: auto" MaxWidth="MaxWidth.Large" Class="pa-4 ">
+    <MudText Typo="Typo.h2" Class="mb-4" Align="Align.Center">Matkakohteet</MudText>
+    <AuthorizeView Context="aContext">
+        <EditForm Model="destination" OnValidSubmit="@HandleValidSubmit">
+            <DataAnnotationsValidator />
+            <MudCard>
+                <MudCardContent Style="background-color: darkgray">
+                    <MudTextField Label="Matkakohteen nimi" @bind-Value="destination.DestinationName" For="@(() => destination.DestinationName)" />
+                    <MudTextField Label="Maa" @bind-Value="destination.Country" For="@(() => destination.Country)" />
+                    <MudTextField Label="Paikkakunta" @bind-Value="destination.Area" For="@(() => destination.Area)" />
+                    <MudTextField Label="Kuvaus" Class="mt-3" @bind-Value="destination.Description" For="@(() => destination.Description)" />
+
+
+
+                    <MudStack Style="background-color: darkgray" Row="true" Class="mt-4">
+                        <MudAvatar Size="Size.Large" Image="@ImageUri"></MudAvatar>
+                        <MudFileUpload T="IBrowserFile" FilesChanged="LoadImage">
+                            <ButtonTemplate Context="context_">
+                                <MudButton HtmlTag="label"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.CloudUpload"
+                                           for="@context_">
+                                    Lisää kuva
+                                </MudButton>
+                            </ButtonTemplate>
+                        </MudFileUpload>
+                    </MudStack>
+
+                </MudCardContent>
+                <MudCardActions Style="background-color: darkgray">
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Lisää matkakohde</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </EditForm>
+    </AuthorizeView>
+    <MudDivider DividerType="DividerType.Middle" Class="my-6" />
+    <MudSimpleTable Style="background-color: darkgray; overflow-x: auto" Class="pa-4">
+        <thead>
+            <tr>
+                <th>Kohteen nimi</th>
+                <th>Maa</th>
+                <th>Paikkakunta</th>
+                <th>Kuvaus</th>
+                <th>Kuva</th>
+                <th>Muokkaa</th>
+                <th>Poista</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (destinations is not null)
+            {
+                @foreach (var destination in destinations)
+                {
+                    <tr>
+                        <td>@destination.DestinationName</td>
+                        <td>@destination.Country</td>
+                        <td>@destination.Area</td>
+                        <td>@destination.Description</td>
+                        <td>
+                            <MudButton OnClick="(e) => OpenDialog(destination)">
+                                <MudAvatar Size="Size.Large" Image="@BytesToBase64Image(destination.Image)"></MudAvatar>
+                            </MudButton>
+                        </td>
+                        <td><MudButton ButtonType="ButtonType.Submit" Disabled="@(!Auth)" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto" @onclick="@(() => EditObject(destination.DestinationId))">Muokkaa</MudButton></td>
+                        <td><MudButton ButtonType="ButtonType.Submit" Disabled="@(!Auth)" Variant="Variant.Filled" Color="Color.Error" Class="ml-auto" @onclick="@((e) => DeleteObject(destination.DestinationId))">Poista</MudButton></td>
+                    </tr>
+                }
+            }
+
+        </tbody>
+    </MudSimpleTable>
+
+</MudContainer>
+
+
+@code {
+    private List<StoryDto>? stories;
+    private List<DestinationDto>? destinations;
+    string ImageUri;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+    private bool Auth = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        destinations = await HttpClient.GetFromJsonAsync<List<DestinationDto>>("api/Destinations");
+        var authState = await authenticationState;
+        if (authState.User.Identity.IsAuthenticated)
+        {
+            Auth = true;
+            stories = await HttpClient.GetFromJsonAsync<List<StoryDto>>("api/Stories");
+        }
+
+    }
+
+    DestinationDto destination = new DestinationDto();
+    private async Task HandleValidSubmit()
+    {
+        if (destination.DestinationName is not null && destination.Country is not null && destination.Area is not null)
+        {
+            var response = await HttpClient.PostAsJsonAsync("api/Destinations", destination);
+            Snackbar.Add("Matkakohteen lisäys onnistui", Severity.Success);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                using HttpContent content = response.Content;
+                string responseFromServer = await content.ReadAsStringAsync();
+                Snackbar.Add(responseFromServer, Severity.Error);
+                return;
+            }
+        }
+        else
+        {
+            Snackbar.Add("Täytä tekstikentät lisätäksesi matkakohteen", Severity.Warning);
+        }
+        // Ylhäälle ilmoitus onnistuneesta operaatiosta
+        destinations = await HttpClient.GetFromJsonAsync<List<DestinationDto>>("api/Destinations");
+        //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+        destination = new();
+
+    }
+    private async Task DeleteObject(uint id)
+    {
+        List<uint> idt = new();
+        if (stories is not null)
+        {
+            foreach (var story in stories)
+            {
+                idt.Add(story.DestinationId);
+            }
+
+            if (idt.Contains(id))
+            {
+                Snackbar.Add("Matkakohdetta ei voi poistaa, koska siihen liittyy jokin tarina!", Severity.Error);
+            }
+            else if (!idt.Contains(id))
+            {
+                var dialog = await DialogService.ShowAsync<DestinationsDialog>("Haluatko varmasti poistaa matkakohteen?");
+                var result = await dialog.Result;
+
+                if (!result.Cancelled)
+                {
+                    await HttpClient.DeleteAsync("api/Destinations/" + id);
+                    Snackbar.Add("Matkakohteen poistaminen onnistui", Severity.Success);
+                }
+            }
+        }
+
+        destinations = await HttpClient.GetFromJsonAsync<List<DestinationDto>>("api/Destinations");
+        //NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
+    private async Task EditObject(uint id)
+    {
+        List<uint> idt = new();
+        if (stories is not null)
+        {
+            foreach (var story in stories)
+            {
+                idt.Add(story.DestinationId);
+            }
+
+            if (idt.Contains(id))
+            {
+                Snackbar.Add("Matkakohdetta ei voi muokata, koska siihen liittyy jokin tarina!", Severity.Error);
+            }
+            else if (!idt.Contains(id))
+            {
+                NavigationManager.NavigateTo("destinations/" + id);
+            }
+        }
+
+    }
+
+
+
+    // Image stuff
+    private async Task LoadImage(IBrowserFile file)
+    {
+        using Stream imageStream = file.OpenReadStream(1024 * 1024 * 10);
+
+        using MemoryStream ms = new();
+        await imageStream.CopyToAsync(ms);
+        var asBytes = ms.ToArray();
+
+        ImageUri = $"data:image/png;base64,{Convert.ToBase64String(asBytes)}";
+        destination.Image = asBytes;
+        StateHasChanged();
+    }
+
+    private string BytesToBase64Image(byte[] bytes)
+    {
+        if (bytes is null) return "";
+        return $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+    }
+
+    private void OpenDialog(DestinationDto destinationDto)
+    {
+        var parameters = new DialogParameters { ["ImageBytes"] = destinationDto.Image };
+        var options = new DialogOptions { CloseOnEscapeKey = true, NoHeader = true, MaxWidth = MaxWidth.ExtraLarge };
+        DialogService.Show<ImageDialog>("", parameters, options);
+    }
+
+}

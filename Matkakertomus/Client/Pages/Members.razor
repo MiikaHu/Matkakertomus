@@ -1,0 +1,41 @@
+﻿@page "/members"
+@inject HttpClient Http
+@using Matkakertomus.Shared
+
+
+<MudContainer Class="pa-4">
+	<MudText Typo="Typo.h2" Class="mb-4" Align="Align.Center">Jäsenet</MudText>
+
+	<MudGrid Spacing="5">
+
+		@if (travellers is not null)
+		{
+			@foreach (var traveller in travellers)
+			{
+
+				<MudItem Style="width: 400px;">
+					<MudCard>
+						<MudCardMedia Image="@BytesToBase64Image(traveller.Image)" Height="200"/>
+						<MudCardContent Style="background-color: darkgray">
+							<MudText Typo="Typo.h5">@traveller.FirstName @traveller.LastName</MudText>
+							<MudText Typo="Typo.caption">@traveller.Username </MudText>
+							<MudText Typo="Typo.body1">@traveller.Description</MudText>
+							<MudText Typo="Typo.caption">@traveller.Area</MudText>
+						</MudCardContent>
+					</MudCard>
+				</MudItem>
+			}
+		}
+	</MudGrid>
+</MudContainer>
+
+@code {
+	private string BytesToBase64Image(byte[]? bytes) => bytes is null ? "" : $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+	List<ProfileDto> travellers = new List<ProfileDto>();
+
+	protected override async Task OnInitializedAsync()
+	{
+		travellers = await Http.GetFromJsonAsync<List<ProfileDto>>("api/travellers");
+	}
+
+}

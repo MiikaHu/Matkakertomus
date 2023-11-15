@@ -1,0 +1,87 @@
+﻿@page "/mystories/{id}"
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@using Matkakertomus.Shared
+
+
+@if (storyDto is not null)
+{
+	<MudContainer MaxWidth="MaxWidth.Medium" Class="pa-4">
+		<MudText Typo="Typo.h2" Class="mb-4" Align="Align.Center">Tarinat ja kuvat</MudText>
+
+		<EditForm Model="storyDto" OnValidSubmit="@HandleValidSubmit">
+			<DataAnnotationsValidator/>
+			<MudCard>
+				<MudCardContent Style="background-color: darkgray">
+					
+					<MudDatePicker Label="Tarinan pvm" @bind-Date="storyDto.Date" For="@(() => storyDto.Date)" Required="true"/>
+					<MudTextField Label="Tarina" @bind-Value="storyDto.Text" For="@(() => storyDto.Text)" Required="true"/>
+					<MudSelect @bind-SelectedValue="selectedDestinationId" ValueChanged="(uint value) => HandleDestinationSelection(value)" Label="Matkakohde" Required="true" AnchorOrigin="Origin.BottomCenter">
+						@foreach (var destination in destinations)
+						{
+							<MudSelectItem Value="@destination.DestinationId">@destination.DestinationName</MudSelectItem>
+						}
+					</MudSelect>
+				</MudCardContent>
+
+				<MudContainer Style="background-color: darkgrey">
+					<MudCardActions Style="background-color: darkgray">
+						<MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Tallenna tarina</MudButton>
+					</MudCardActions>
+
+				</MudContainer>
+
+			</MudCard>
+		</EditForm>
+	</MudContainer>
+}
+
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+    private uint selectedDestinationId;
+    StoryDto? storyDto;
+    List<StoryDto>? storiesDto = new();
+    List<DestinationDto>? destinations = new();
+    DestinationDto? selectedDestination = new DestinationDto();
+
+    protected override async Task OnInitializedAsync()
+    {
+        storiesDto = await HttpClient.GetFromJsonAsync<List<StoryDto>>("api/Stories/");
+        destinations = await HttpClient.GetFromJsonAsync<List<DestinationDto>>("api/Destinations");
+        if (storiesDto is not null && Id is not null)
+        {
+            storyDto = storiesDto.FirstOrDefault(t => Convert.ToUInt32(Id) == t.StoryId);
+        }
+        else Snackbar.Add("Ei löytynyt tarinoita listaan", Severity.Error);
+
+        if (storyDto is null)
+        {
+            Snackbar.Add("Ei löytynyt tarinaa", Severity.Warning);
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        
+        // Lisää virheenkäsittely
+        var response = await HttpClient.PutAsJsonAsync("api/Stories/" + Id, storyDto);
+        if (!response.IsSuccessStatusCode)
+        {
+            using HttpContent content = response.Content;
+            string responseFromServer = await content.ReadAsStringAsync();
+            Snackbar.Add(responseFromServer, Severity.Error);
+            return;
+        }
+        Snackbar.Add("Tarinan muokkaus onnistui", Severity.Success); // Ylhäälle ilmoitus onnistuneesta operaatiosta
+        NavigationManager.NavigateTo("mytrips/"+ storyDto.TripId + "/mystories");
+    }
+    private void HandleDestinationSelection(uint destinationId)
+    {
+        selectedDestinationId = destinationId;
+        // Do something with the selectedDestinationId
+    }
+}

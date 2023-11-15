@@ -1,0 +1,44 @@
+@inject NavigationManager NavigationManager
+@inject ILocalStorageService LocalStorage
+@inject AuthenticationStateProvider AuthStateProvider
+@inject StateContainer State
+@implements IDisposable
+
+<MudMenu ActivationEvent="@MouseEvent.MouseOver" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter" Class="mr-16">
+	<ActivatorContent>
+		<MudChip Icon="@Icons.Material.Filled.Person" Color="Color.Primary">Tunnus</MudChip>
+	</ActivatorContent>
+	<ChildContent>
+		<AuthorizeView>
+		<Authorized>
+			<ProfileMenu/>
+		</Authorized>
+		<NotAuthorized>
+			<LoggedOutProfileMenu/>
+		</NotAuthorized>
+		</AuthorizeView>
+
+
+	</ChildContent>
+</MudMenu>
+	
+
+@code {
+	
+	
+
+	protected override void OnInitialized()
+	{
+		State.OnChange += StateHasChanged;
+	}
+
+	
+
+	public void Dispose()
+	{
+		State.OnChange -= StateHasChanged;
+	}
+
+	
+
+}

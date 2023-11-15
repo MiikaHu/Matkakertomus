@@ -1,0 +1,14 @@
+﻿@inject StateContainer State
+
+@CreateRenderFragment
+
+@code {
+
+	private RenderFragment CreateRenderFragment =>
+		@<text>
+			<MudMenuItem Href="/register" IconSize="Size.Small" IconColor="Color.Dark" Icon="@Icons.Material.Filled.AppRegistration">Rekisteröidy</MudMenuItem>
+			<MudMenuItem Href="/login" IconSize="Size.Small" IconColor="Color.Dark" Icon="@Icons.Material.Filled.Login">Kirjaudu sisään</MudMenuItem>
+		 </text>;
+
+	private string BytesToBase64Image(byte[]? bytes) => bytes is null ? "" : $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+}

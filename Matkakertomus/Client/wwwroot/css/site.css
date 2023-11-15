@@ -1,0 +1,34 @@
+﻿/* Center the app bar text */
+.mud-appbar-title {
+    justify-content: center;
+}
+
+/* Change the color of the app bar background and text */
+.mud-appbar {
+    background-color: #2196f3;
+    color: white;
+}
+
+/* Make the app bar icons white */
+.mud-icon-button {
+    color: white;
+}
+
+/* Add a border to the main content area */
+.mud-main-content {
+    padding: 16px;
+}
+
+/* Add some margin to the bottom of the page */
+body {
+    margin-bottom: 64px;
+}
+.mud-card-content {
+    color: black;
+}
+.my-container, .my-form {
+    color: black;
+}
+.mud-form-field-label {
+    color: black;
+}

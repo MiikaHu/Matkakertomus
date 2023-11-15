@@ -1,0 +1,68 @@
+﻿@page "/grouptrips"
+@using System.Net.Http.Json
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@using Matkakertomus.Shared
+
+<PageTitle>Porukan matkat</PageTitle>
+
+<MudContainer Style="overflow-x: auto" MaxWidth="MaxWidth.Large" Class="pa-4">
+    <MudText Typo="Typo.h2" Class="mb-4" Align="Align.Center">Porukan matkat</MudText>
+
+    <MudSimpleTable Style="background-color: darkgray; overflow-x: auto" Class="pa-4">
+        <thead>
+            <tr>
+                <th>Matkaaja</th>
+                <th>Matkan otsikko</th>
+                <th>Lähtö pvm</th>
+                <th>Paluu pvm</th>
+                <th>Kuvat ja tarinat</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (trips is not null)
+            {
+                @foreach (var trip in trips)
+                {
+                    var profileDto = travellers.FirstOrDefault(t => t.TravellerId == trip.TravellerId);
+                    <tr>
+                        <td>@(profileDto?.Username)</td>
+                        <td>@trip.Title</td>
+                        <td>@Convert.ToDateTime(trip.StartDate).ToString("dd/MM/yyyy")</td>
+                        <td>@Convert.ToDateTime(trip.EndDate).ToString("dd/MM/yyyy")</td>
+                        <td>
+                            <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled" Color="Color.Primary"
+                               Class="ml-auto" @onclick="@(() => CheckStories(trip.TripId))">
+                                Kuvat ja tarinat
+                            </MudButton>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </MudSimpleTable>
+</MudContainer>
+
+@code {
+    private List<TripDto>? trips;
+    string ImageUri;
+    private List<ProfileDto>? travellers;
+
+    TripDto trip = new TripDto();
+    DestinationDto destination = new DestinationDto();
+    ProfileDto profileDto = new ProfileDto();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        trips = await HttpClient.GetFromJsonAsync<List<TripDto>>("api/trips/");
+        travellers = await HttpClient.GetFromJsonAsync<List<ProfileDto>>("api/Travellers");
+    }
+    private async Task CheckStories(uint id)
+    {
+        NavigationManager.NavigateTo("groupstories/" + id);
+    }
+
+}

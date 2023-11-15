@@ -1,0 +1,72 @@
+﻿@inherits LayoutComponentBase
+@inject HttpClient Http
+@inject StateContainer State
+@inject AuthenticationStateProvider AuthStateProvider
+<style>
+  .custom-appbar {
+    height: 64px;
+  }
+  .content {
+    margin-top: 64px;
+  }
+</style>
+
+<MudThemeProvider Theme="new MyCustomTheme()" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+
+ <MudAppBar Elevation="1" Class="custom-appbar">
+    <MudIconButton Icon="@Icons.Material.Filled.Menu" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" Margin="Margin.Left(16)" />
+        
+    <MudText Typo="Typo.h2">Matkakertomus</MudText>
+    <MudSpacer />
+    <UserInfoArea/>
+</MudAppBar>
+
+
+   <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent>
+        
+        <div class="content">
+            <MudContainer MaxWidth="MaxWidth.Large" Class="pa-4" Radius="Radius.8">
+                @Body
+            </MudContainer>
+        </div>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    ObjectPosition ImagePosition = ObjectPosition.Center;
+
+    void SetImagePosition(ObjectPosition value)
+    {
+        ImagePosition = value;
+    }
+
+    bool _drawerOpen = true;
+
+    
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+			if (authState.User.Identity.IsAuthenticated)
+			{
+				var result = await Http.GetFromJsonAsync<ProfileDto>("/api/Travellers/profile");
+				State.User = result;
+			}
+		}
+			
+	}
+}
